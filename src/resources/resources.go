@@ -15,8 +15,7 @@ type Publisher interface {
 }
 
 func (o OrderInteractor) FindOrder(id string) (order Order, err error) {
-	err = o.Publisher.Publish("order.find", id)
-	return Order{}, err
+	return Order{}, nil
 }
 
 func (o OrderInteractor) CreateOrder(order *Order) (err error) {

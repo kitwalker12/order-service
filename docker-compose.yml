@@ -8,12 +8,18 @@ services:
       - .:/go/src/app
     links:
       - rabbit-service
+      - redis-service
     environment:
       - RABBITMQ_URL=amqp://admin:password@rabbit-service:5672/
+      - REDIS_URL=redis-service:6379
+      - REDIS_PW=password
 
   rabbit-service:
     image: tutum/rabbitmq
-    ports:
-      - "8080:15672"
+    environment:
+      - RABBITMQ_PASS=password
+
+  redis-service:
+    image: tutum/rabbitmq
     environment:
       - RABBITMQ_PASS=password
