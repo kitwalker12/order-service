@@ -5,6 +5,7 @@ import "log"
 type OrderInteractor struct {
 	Order     Order
 	Publisher Publisher
+	Cache     Cache
 }
 
 type Order struct {
@@ -12,6 +13,10 @@ type Order struct {
 
 type Publisher interface {
 	Publish(routingKey string, body string) error
+}
+
+type Cache interface {
+	Do(cmd string, args ...interface{}) (interface{}, error)
 }
 
 func (o OrderInteractor) FindOrder(id string) (order Order, err error) {

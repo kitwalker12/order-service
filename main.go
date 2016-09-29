@@ -71,25 +71,29 @@ func (w WebServiceHandler) CreateOrder(request *restful.Request, response *restf
 	response.WriteHeaderAndEntity(http.StatusCreated, order)
 }
 
+func getReceiver() interfaces.RabbitMQ {
+	rabbitmq := interfaces.RabbitMQ{
+		Uri:          os.Getenv("RABBITMQ_URL"),
+		Exchange:     "services_direct",
+		ExchangeType: "direct",
+		Reliable:     true,
+		Processor: resources.OrderInteractor{
+			Publisher: interfaces.RabbitMQ{
+				Uri:          os.Getenv("RABBITMQ_URL"),
+				Exchange:     "services_direct",
+				ExchangeType: "direct",
+				Reliable:     true,
+			},
+			Cache: interfaces.Cache{Uri: os.Getenv("REDIS_URL")},
+		},
+	}
+	return rabbitmq
+}
+
 func main() {
 
 	go func() { //start listeners in new go-routines
-		receiver := interfaces.RabbitMQ{
-			Uri:          os.Getenv("RABBITMQ_URL"),
-			Exchange:     "services_direct",
-			ExchangeType: "direct",
-			Reliable:     true,
-			Processor: resources.OrderInteractor{
-				Publisher: interfaces.RabbitMQ{
-					Uri:          os.Getenv("RABBITMQ_URL"),
-					Exchange:     "services_direct",
-					ExchangeType: "direct",
-					Reliable:     true,
-				},
-			},
-		}
-
-		c, err := receiver.Subscribe("order.find")
+		c, err := getReceiver().Subscribe("order.create")
 		if err != nil {
 			log.Fatalf("%s", err)
 		}
@@ -99,26 +103,10 @@ func main() {
 		if err := c.Shutdown(); err != nil {
 			log.Fatalf("error during shutdown: %s", err)
 		}
-
 	}()
 
 	go func() { //start listeners in new go-routines
-		receiver := interfaces.RabbitMQ{
-			Uri:          os.Getenv("RABBITMQ_URL"),
-			Exchange:     "services_direct",
-			ExchangeType: "direct",
-			Reliable:     true,
-			Processor: resources.OrderInteractor{
-				Publisher: interfaces.RabbitMQ{
-					Uri:          os.Getenv("RABBITMQ_URL"),
-					Exchange:     "services_direct",
-					ExchangeType: "direct",
-					Reliable:     true,
-				},
-			},
-		}
-
-		c, err := receiver.Subscribe("order.create")
+		c, err := getReceiver().Subscribe("order.create_multiple_orders")
 		if err != nil {
 			log.Fatalf("%s", err)
 		}
@@ -128,7 +116,71 @@ func main() {
 		if err := c.Shutdown(); err != nil {
 			log.Fatalf("error during shutdown: %s", err)
 		}
+	}()
 
+	go func() { //start listeners in new go-routines
+		c, err := getReceiver().Subscribe("order.update")
+		if err != nil {
+			log.Fatalf("%s", err)
+		}
+		//listening on queue forever
+		select {}
+
+		if err := c.Shutdown(); err != nil {
+			log.Fatalf("error during shutdown: %s", err)
+		}
+	}()
+
+	go func() { //start listeners in new go-routines
+		c, err := getReceiver().Subscribe("order.pending_user_created")
+		if err != nil {
+			log.Fatalf("%s", err)
+		}
+		//listening on queue forever
+		select {}
+
+		if err := c.Shutdown(); err != nil {
+			log.Fatalf("error during shutdown: %s", err)
+		}
+	}()
+
+	go func() { //start listeners in new go-routines
+		c, err := getReceiver().Subscribe("order.fulfill")
+		if err != nil {
+			log.Fatalf("%s", err)
+		}
+		//listening on queue forever
+		select {}
+
+		if err := c.Shutdown(); err != nil {
+			log.Fatalf("error during shutdown: %s", err)
+		}
+	}()
+
+	go func() { //start listeners in new go-routines
+		c, err := getReceiver().Subscribe("return.pending.netsuite_order_id_required")
+		if err != nil {
+			log.Fatalf("%s", err)
+		}
+		//listening on queue forever
+		select {}
+
+		if err := c.Shutdown(); err != nil {
+			log.Fatalf("error during shutdown: %s", err)
+		}
+	}()
+
+	go func() { //start listeners in new go-routines
+		c, err := getReceiver().Subscribe("order.service_status")
+		if err != nil {
+			log.Fatalf("%s", err)
+		}
+		//listening on queue forever
+		select {}
+
+		if err := c.Shutdown(); err != nil {
+			log.Fatalf("error during shutdown: %s", err)
+		}
 	}()
 
 	wsContainer := restful.NewContainer()
@@ -140,6 +192,7 @@ func main() {
 				ExchangeType: "direct",
 				Reliable:     true,
 			},
+			Cache: interfaces.Cache{Uri: os.Getenv("REDIS_URL")},
 		},
 	}
 	w.Register(wsContainer)
