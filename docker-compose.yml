@@ -6,3 +6,14 @@ services:
       - "3000:3000"
     volumes:
       - .:/go/src/app
+    links:
+      - rabbit-service
+    environment:
+      - RABBITMQ_URL=amqp://admin:password@rabbit-service:5672/
+
+  rabbit-service:
+    image: tutum/rabbitmq
+    ports:
+      - "8080:15672"
+    environment:
+      - RABBITMQ_PASS=password

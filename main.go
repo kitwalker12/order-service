@@ -3,7 +3,9 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
+	"interfaces"
 	"resources"
 
 	restful "github.com/emicklei/go-restful"
@@ -70,9 +72,75 @@ func (w WebServiceHandler) CreateOrder(request *restful.Request, response *restf
 }
 
 func main() {
+
+	go func() { //start listeners in new go-routines
+		receiver := interfaces.RabbitMQ{
+			Uri:          os.Getenv("RABBITMQ_URL"),
+			Exchange:     "services_direct",
+			ExchangeType: "direct",
+			Reliable:     true,
+			Processor: resources.OrderInteractor{
+				Publisher: interfaces.RabbitMQ{
+					Uri:          os.Getenv("RABBITMQ_URL"),
+					Exchange:     "services_direct",
+					ExchangeType: "direct",
+					Reliable:     true,
+				},
+			},
+		}
+
+		c, err := receiver.Subscribe("order.find")
+		if err != nil {
+			log.Fatalf("%s", err)
+		}
+		//listening on queue forever
+		select {}
+
+		if err := c.Shutdown(); err != nil {
+			log.Fatalf("error during shutdown: %s", err)
+		}
+
+	}()
+
+	go func() { //start listeners in new go-routines
+		receiver := interfaces.RabbitMQ{
+			Uri:          os.Getenv("RABBITMQ_URL"),
+			Exchange:     "services_direct",
+			ExchangeType: "direct",
+			Reliable:     true,
+			Processor: resources.OrderInteractor{
+				Publisher: interfaces.RabbitMQ{
+					Uri:          os.Getenv("RABBITMQ_URL"),
+					Exchange:     "services_direct",
+					ExchangeType: "direct",
+					Reliable:     true,
+				},
+			},
+		}
+
+		c, err := receiver.Subscribe("order.create")
+		if err != nil {
+			log.Fatalf("%s", err)
+		}
+		//listening on queue forever
+		select {}
+
+		if err := c.Shutdown(); err != nil {
+			log.Fatalf("error during shutdown: %s", err)
+		}
+
+	}()
+
 	wsContainer := restful.NewContainer()
 	w := WebServiceHandler{
-		OrderInteractor: resources.OrderInteractor{},
+		OrderInteractor: resources.OrderInteractor{
+			Publisher: interfaces.RabbitMQ{
+				Uri:          os.Getenv("RABBITMQ_URL"),
+				Exchange:     "services_direct",
+				ExchangeType: "direct",
+				Reliable:     true,
+			},
+		},
 	}
 	w.Register(wsContainer)
 
