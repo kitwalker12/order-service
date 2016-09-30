@@ -12,6 +12,9 @@ services:
     environment:
       - RABBITMQ_URL=amqp://admin:password@rabbit-service:5672/
       - REDIS_URL=redis://:password@redis-service:6379/0
+      - PORT=:3000
+      - DOCKERCLOUD_SERVICE_FQDN=localhost
+      - PROTO=http
 
   rabbit-service:
     image: tutum/rabbitmq

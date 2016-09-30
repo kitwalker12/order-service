@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -18,6 +19,7 @@ type WebServiceHandler struct {
 
 type OrderInteractor interface {
 	FindOrder(id string) (order resources.Order, err error)
+	FindOrderbyExternalId(id string) (order resources.Order, err error)
 	CreateOrder(order *resources.Order) (err error)
 }
 
@@ -35,6 +37,12 @@ func (w WebServiceHandler) Register(container *restful.Container) {
 		Param(ws.PathParameter("order-id", "Netsuite Order ID").DataType("string")).
 		Writes(resources.Order{}))
 
+	ws.Route(ws.GET("/external/{external-id}").To(w.FindOrderbyExternalId).
+		Doc("Get Order by External ID").
+		Operation("FindOrder").
+		Param(ws.PathParameter("external-id", "External Order ID").DataType("string")).
+		Writes(resources.Order{}))
+
 	ws.Route(ws.POST("").To(w.CreateOrder).
 		Doc("Create Order").
 		Operation("CreateOrder").
@@ -46,6 +54,17 @@ func (w WebServiceHandler) Register(container *restful.Container) {
 func (w WebServiceHandler) FindOrder(request *restful.Request, response *restful.Response) {
 	id := request.PathParameter("order-id")
 	order, err := w.OrderInteractor.FindOrder(id)
+	if err != nil {
+		response.AddHeader("Content-Type", "text/plain")
+		response.WriteErrorString(http.StatusNotFound, "404: Order could not be found.")
+		return
+	}
+	response.WriteEntity(order)
+}
+
+func (w WebServiceHandler) FindOrderbyExternalId(request *restful.Request, response *restful.Response) {
+	id := request.PathParameter("external-id")
+	order, err := w.OrderInteractor.FindOrderbyExternalId(id)
 	if err != nil {
 		response.AddHeader("Content-Type", "text/plain")
 		response.WriteErrorString(http.StatusNotFound, "404: Order could not be found.")
@@ -200,9 +219,10 @@ func main() {
 	// Optionally, you can install the Swagger Service which provides a nice Web UI on your REST API
 	// You need to download the Swagger HTML5 assets and change the FilePath location in the config below.
 	// Open http://localhost:3000/apidocs and enter http://localhost:3000/apidocs.json in the api input field.
+	url := fmt.Sprintf("%s://%s%s", os.Getenv("PROTO"), os.Getenv("DOCKERCLOUD_SERVICE_FQDN"), os.Getenv("PORT"))
 	config := swagger.Config{
 		WebServices:    wsContainer.RegisteredWebServices(), // you control what services are visible
-		WebServicesUrl: "http://localhost:3000",
+		WebServicesUrl: url,
 		ApiPath:        "/apidocs.json",
 
 		// Optionally, specifiy where the UI is located
@@ -210,8 +230,7 @@ func main() {
 		SwaggerFilePath: "/go/src/swagger-ui/dist"}
 	swagger.RegisterSwaggerService(config, wsContainer)
 
-	log.Printf("start listening on localhost:3000")
-	server := &http.Server{Addr: ":3000", Handler: wsContainer}
+	log.Printf("start listening")
+	server := &http.Server{Addr: os.Getenv("PORT"), Handler: wsContainer}
 	log.Fatal(server.ListenAndServe())
-
 }
